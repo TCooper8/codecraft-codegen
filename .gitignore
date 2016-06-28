@@ -8,3 +8,5 @@ target
 /.settings
 /RUNNING_PID
 **/*.sw*
+
+node_modules
