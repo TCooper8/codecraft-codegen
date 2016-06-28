@@ -1,0 +1,20 @@
+{
+  "name": "codecraft-codegen",
+  "version": "1.0.0",
+  "description": "",
+  "main": "src/main/nodejs/index.js",
+  "scripts": {
+    "test": "mocha --harmony --recursive src/test/nodejs"
+  },
+  "keywords": [
+    "codecraft",
+    "codegen"
+  ],
+  "author": "coopetyl@live.com",
+  "license": "ISC",
+  "dependencies": {
+    "codecraft-zedd": "file:../codecraft-zedd",
+    "lodash": "^4.13.1",
+    "mkdirp": "^0.5.1"
+  }
+}
