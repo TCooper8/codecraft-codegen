@@ -47,6 +47,9 @@ let resolveScalaType = (templateType, imports, namespace, generated) => {
   else if (templateType === 'option') {
     return 'Option'
   }
+  else if (templateType === 'bool') {
+    return 'Boolean'
+  }
   else if (templateType.indexOf('[') !== -1) {
     // Get the outer type name.
     let outerI = templateType.indexOf('[')
