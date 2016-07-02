@@ -1,0 +1,8 @@
+{
+  "name": "codecraft/codegen",
+  "dependencies": {
+  },
+  "publish": [
+    "npm install ./"
+  ]
+}
