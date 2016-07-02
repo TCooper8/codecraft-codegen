@@ -50,6 +50,9 @@ let resolveScalaType = (templateType, imports, namespace, generated) => {
   else if (templateType === 'bool') {
     return 'Boolean'
   }
+  else if (templateType === 'map') {
+    return 'Map'
+  }
   else if (templateType.indexOf('[') !== -1) {
     // Get the outer type name.
     let outerI = templateType.indexOf('[')
@@ -58,9 +61,14 @@ let resolveScalaType = (templateType, imports, namespace, generated) => {
     // Get the inner type name.
     let innerI = templateType.lastIndexOf(']')
     let inner = templateType.slice(outerI + 1, innerI)
+    let innerParts = _.map(inner.split(','), part => part.trim())
+    let innerResults = _.map(innerParts, part => {
+      return resolveScalaType(part, imports, namespace, generated)
+    }).join(', ')
 
     // Resolve the outer type and inner template types to scala types.
-    return sprintf('%s[%s]', resolveScalaType(outer, imports, namespace, generated), resolveScalaType(inner, imports, namespace, generated))
+    return sprintf('%s[%s]', resolveScalaType(outer, imports, namespace, generated), innerResults)
+    //return sprintf('%s[%s]', resolveScalaType(outer, imports, namespace, generated), resolveScalaType(inner, imports, namespace, generated))
   }
   else if (templateType.search(' ') !== -1) {
     // This is a nested type.
@@ -162,7 +170,7 @@ let genScalaServices = (namespace, template, moduleName) => {
       let responseType = resolveScalaType(methodTemplate.response, imports, namespace, generated)
 
       let methodDef = sprintf('\tdef %s(cmd: %s): %s', methodName, requestType, responseType)
-      let methodRegistry = sprintf('\t\t\"cmd.%s.%s\" -> {\n\t\t\tany => %s(any.asInstanceOf[%s])\n\t\t}', moduleName.toLowerCase(), methodName, methodName, requestType)
+      let methodRegistry = sprintf('\t\t\"cmd.%s.%s\" -> {\n\t\t\tany => %s(any.asInstanceOf[%s])\n\t\t}', moduleName.toLowerCase(), methodName.toLowerCase(), methodName, requestType)
 
       return {
         methodDef: methodDef,
