@@ -4,7 +4,6 @@
   "description": "",
   "main": "src/main/nodejs/index.js",
   "scripts": {
-    "pman": "node node_modules/pman",
     "test": "mocha --harmony --recursive src/test/nodejs"
   },
   "keywords": [
@@ -14,9 +13,7 @@
   "author": "coopetyl@live.com",
   "license": "ISC",
   "dependencies": {
-    "codecraft-zedd": "file:../zedd",
     "lodash": "^4.13.1",
-    "mkdirp": "^0.5.1",
-    "pman": "file:../pman"
+    "mkdirp": "^0.5.1"
   }
 }
