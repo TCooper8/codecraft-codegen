@@ -8,7 +8,6 @@ const Util = require('util')
 const mkdirp = require('mkdirp')
 
 const sprintf = Util.format
-const array = monad.array
 
 let resolveGenerated = (templateType, generated) => {
   console.log('generated = %j', generated)
@@ -81,16 +80,16 @@ let resolveScalaType = (templateType, imports, namespace, generated) => {
   else if (templateType.search(' ') !== -1) {
     // This is a nested type.
     let parts = templateType.split(' ')
-    //return _.reduce(parts, (acc, part) => {
-    return array.fold(acc => part => {
+    return _.reduce(parts, (acc, part) => {
+    //return array.fold(acc => part => {
       console.log(
         'parts fold (%s, %s)', acc, part)
       if (acc === undefined) {
         return resolveScalaType(part, imports, namespace, generated)
       }
       return sprintf('%s[%s]', resolveScalaType(part, imports, namespace, generated), acc)
-    })(undefined)(parts)
-    //}, undefined)
+    //})(undefined)(parts)
+    }, undefined)
   }
   else if (templateType.indexOf('${') !== -1) {
     // This is an interpolated type from the templates.
@@ -196,10 +195,12 @@ let genScalaServices = (namespace, template, moduleName) => {
       }
     })(body)
 
-    let methodsDef = monad.array.map(pair => pair.methodDef)(registries).join('\n')
+    //let methodsDef = monad.array.map(pair => pair.methodDef)(registries).join('\n')
+    let methodsDef = _.map(registries, pair => pair.methodDef).join('\n')
     let registriesDef = [
       sprintf('\tval methodRegistry = Map[String, Any => Any]('),
-      monad.array.map(pair => pair.methodRegistry)(registries).join(',\n'),
+      _.map(registries, pair => pair.methodRegistry).join(',\n'),
+      //monad.array.map(pair => pair.methodRegistry)(registries).join(',\n'),
       '\t)'
     ].join('\n')
 
@@ -374,7 +375,8 @@ let genScalaRouting = (namespace, template, messagesTemplate, eventsTemplate, mo
 const scalaOut = config.scalaOutputPath
 
 let genMessages = messagesDir => {
-  monad.array.each(filename => {
+  //monad.array.each(filename => {
+  _.each(Fs.readdirSync(messagesDir), filename => {
     let filepath = Path.resolve(messagesDir, filename)
     if (filename.endsWith('.swp')) {
       return;
@@ -397,14 +399,16 @@ let genMessages = messagesDir => {
     mkdirp.sync(dirpath)
 
     Fs.writeFileSync(fileout, scalaMessages)
-  })(Fs.readdirSync(messagesDir))
+  })
+  //})(Fs.readdirSync(messagesDir))
 }
 if (config.genMessages) {
   genMessages(config.inputPath)
 }
 
 let genServices = servicesDir => {
-  monad.array.each(filename => {
+  //monad.array.each(filename => {
+  _.each(Fs.readdirSync(servicesDir), filename => {
     let filepath = Path.resolve(servicesDir, filename)
     if (filepath.endsWith('.swp')) {
       return;
@@ -427,7 +431,8 @@ let genServices = servicesDir => {
     mkdirp.sync(dirpath)
 
     Fs.writeFileSync(fileout, scalaServices)
-  })(Fs.readdirSync(servicesDir))
+  //})(Fs.readdirSync(servicesDir))
+  }
 }
 
 if (config.genServices) {
@@ -435,7 +440,8 @@ if (config.genServices) {
 }
 
 let genRoutes = routesDir => {
-  monad.array.each(filename => {
+  //monad.array.each(filename => {
+  _.each(Fs.readdirSync(routesDir), filename => {
     let filepath = Path.resolve(routesDir, filename)
     if (filepath.endsWith('.swp')) {
       return;
@@ -461,7 +467,8 @@ let genRoutes = routesDir => {
     mkdirp.sync(dirpath)
 
     Fs.writeFileSync(fileout, scalaRoutes)
-  })(Fs.readdirSync(routesDir))
+  //})(Fs.readdirSync(routesDir))
+  }
 }
 
 if (config.genRoutes) {
