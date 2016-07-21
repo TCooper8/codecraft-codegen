@@ -3,12 +3,10 @@
 const _ = require('lodash')
 const Fs = require('fs')
 const Path = require('path')
-const Zedd = require('codecraft-zedd')
 const config = require('../config')
 const Util = require('util')
 const mkdirp = require('mkdirp')
 
-const monad = Zedd.monad
 const sprintf = Util.format
 const array = monad.array
 
