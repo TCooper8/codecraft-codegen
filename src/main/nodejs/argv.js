@@ -1,9 +1,7 @@
 'use strict'
 
 const Util = require('util')
-const zedd = require('codecraft-zedd')
 
-const array = zedd.monad.array
 const sprintf = Util.format
 
 // Gather all of the arguments and map them to program configuration keys.
