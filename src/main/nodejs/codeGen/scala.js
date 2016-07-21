@@ -8,7 +8,6 @@ const Util = require('util')
 const mkdirp = require('mkdirp')
 
 const sprintf = Util.format
-const array = monad.array
 
 let resolveGenerated = (templateType, generated) => {
   console.log('generated = %j', generated)
@@ -81,16 +80,16 @@ let resolveScalaType = (templateType, imports, namespace, generated) => {
   else if (templateType.search(' ') !== -1) {
     // This is a nested type.
     let parts = templateType.split(' ')
-    //return _.reduce(parts, (acc, part) => {
-    return array.fold(acc => part => {
+    return _.reduce(parts, (acc, part) => {
+    //return array.fold(acc => part => {
       console.log(
         'parts fold (%s, %s)', acc, part)
       if (acc === undefined) {
         return resolveScalaType(part, imports, namespace, generated)
       }
       return sprintf('%s[%s]', resolveScalaType(part, imports, namespace, generated), acc)
-    })(undefined)(parts)
-    //}, undefined)
+    //})(undefined)(parts)
+    }, undefined)
   }
   else if (templateType.indexOf('${') !== -1) {
     // This is an interpolated type from the templates.
@@ -130,13 +129,14 @@ let genScalaClasses = (namespace, template) => {
   let imports = []
 
   // Generate the class definitions.
-  //let classDefinitions = _.map(template, (body, className) => {
-  let classDefinitions = monad.object.mapPair((className, body) => {
+  let classDefinitions = _.map(template, (body, className) => {
+  //let classDefinitions = monad.object.mapPair((className, body) => {
     //let classDef = _.map(body, (templateType, fieldName) => {
 
     console.log('Pushing generated %s', className)
     generated.push(className)
-    let classDef = monad.object.mapPair((fieldName, templateType) => {
+    let classDef = _.map(body, (templateType, fieldName) => {
+    //let classDef = monad.object.mapPair((fieldName, templateType) => {
       console.log(
         'classDef object mapPair (%s, %s)',
         fieldName,
@@ -144,7 +144,8 @@ let genScalaClasses = (namespace, template) => {
       )
 
       return sprintf('\t%s: %s', fieldName, resolveScalaType(templateType, imports, namespace, generated))
-    })(body)
+    })
+    //})(body)
     .join(',\n')
 
     return [
@@ -152,7 +153,8 @@ let genScalaClasses = (namespace, template) => {
       classDef,
       ')'
     ].join('\n')
-  })(template)
+  })
+  //})(template)
   .join('\n\n')
 
   let importsDef = imports.join('\n')
@@ -170,10 +172,10 @@ let genScalaServices = (namespace, template, moduleName) => {
 
   let imports = []
 
-  //let serviceDefinitions = _.map(template, (body, serviceName) => {
-  let serviceDefinitions = monad.object.mapPair((serviceName, body) => {
-    //let registries = _.map(body, (templateType, fieldName) => {
-    let registries = monad.object.mapPair((methodName, methodTemplate) => {
+  let serviceDefinitions = _.map(template, (body, serviceName) => {
+  //let serviceDefinitions = monad.object.mapPair((serviceName, body) => {
+    let registries = _.map(body, (methodTemplate, methodName) => {
+    //let registries = monad.object.mapPair((methodName, methodTemplate) => {
       let request = methodTemplate.request
       let response = methodTemplate.response
 
@@ -194,12 +196,15 @@ let genScalaServices = (namespace, template, moduleName) => {
         methodDef: methodDef,
         methodRegistry: methodRegistry
       }
-    })(body)
+    })
+    //})(body)
 
-    let methodsDef = monad.array.map(pair => pair.methodDef)(registries).join('\n')
+    //let methodsDef = monad.array.map(pair => pair.methodDef)(registries).join('\n')
+    let methodsDef = _.map(registries, pair => pair.methodDef).join('\n')
     let registriesDef = [
       sprintf('\tval methodRegistry = Map[String, Any => Any]('),
-      monad.array.map(pair => pair.methodRegistry)(registries).join(',\n'),
+      _.map(registries, pair => pair.methodRegistry).join(',\n'),
+      //monad.array.map(pair => pair.methodRegistry)(registries).join(',\n'),
       '\t)'
     ].join('\n')
 
@@ -212,7 +217,8 @@ let genScalaServices = (namespace, template, moduleName) => {
       '}'
     ]
     .join('\n')
-  })(template)
+  })
+  //})(template)
   .join('\n\n')
 
   let importsDef = imports.join('\n')
@@ -240,11 +246,13 @@ let genScalaRouting = (namespace, template, messagesTemplate, eventsTemplate, mo
   let formatters = (() => {
     let resolved = { }
 
-    let msgFormatters = monad.object.mapPair((className, body) => {
+    let msgFormatters = _.map(messagesTemplate, (body, className) => {
+    //let msgFormatters = monad.object.mapPair((className, body) => {
       if (resolved[className]) return;
       let scalaClassName = resolveScalaType(className, imports, namespace, generated)
       return sprintf('\timplicit val %sFormat = Json.format[%s]', scalaClassName, scalaClassName)
-    })(messagesTemplate)
+    })
+    //})(messagesTemplate)
 
     return _.filter(msgFormatters).join('\n')
   })()
@@ -297,8 +305,10 @@ let genScalaRouting = (namespace, template, messagesTemplate, eventsTemplate, mo
     sprintf('\t)')
   ].join('\n')
 
-  let cmdInfoRegistries = monad.object.mapPair((serviceName, body) => {
-    let cmdInfoRegistries = monad.object.mapPair((methodName, methodTemplate) => {
+  let cmdInfoRegistries = _.map(template, (body, serviceName) => {
+  //let cmdInfoRegistries = monad.object.mapPair((serviceName, body) => {
+    let cmdInfoRegistries = _.map(body, (methodTemplate, methodName) => {
+    //let cmdInfoRegistries = monad.object.mapPair((methodName, methodTemplate) => {
       console.log('cmdInfoRegistries(%j)', methodTemplate, methodName)
       let requestType = resolveScalaType(methodTemplate.request, imports, namespace, generated)
       let responseType = resolveScalaType(methodTemplate.response, imports, namespace, generated)
@@ -315,10 +325,12 @@ let genScalaRouting = (namespace, template, messagesTemplate, eventsTemplate, mo
       ].join('\n')
 
       //return sprintf('\t\tUtils.mkJsonCmdRegistry[%s, %s](\"%s\")', requestType, responseType, methodName)
-    })(body)
+    })
+    //})(body)
 
     return cmdInfoRegistries
-  })(template)
+  })
+  //})(template)
 
   let cmdInfoDef = [
     '\tlazy val cmdInfo = List(',
@@ -374,7 +386,8 @@ let genScalaRouting = (namespace, template, messagesTemplate, eventsTemplate, mo
 const scalaOut = config.scalaOutputPath
 
 let genMessages = messagesDir => {
-  monad.array.each(filename => {
+  //monad.array.each(filename => {
+  _.each(Fs.readdirSync(messagesDir), filename => {
     let filepath = Path.resolve(messagesDir, filename)
     if (filename.endsWith('.swp')) {
       return;
@@ -397,14 +410,16 @@ let genMessages = messagesDir => {
     mkdirp.sync(dirpath)
 
     Fs.writeFileSync(fileout, scalaMessages)
-  })(Fs.readdirSync(messagesDir))
+  })
+  //})(Fs.readdirSync(messagesDir))
 }
 if (config.genMessages) {
   genMessages(config.inputPath)
 }
 
 let genServices = servicesDir => {
-  monad.array.each(filename => {
+  //monad.array.each(filename => {
+  _.each(Fs.readdirSync(servicesDir), filename => {
     let filepath = Path.resolve(servicesDir, filename)
     if (filepath.endsWith('.swp')) {
       return;
@@ -427,7 +442,8 @@ let genServices = servicesDir => {
     mkdirp.sync(dirpath)
 
     Fs.writeFileSync(fileout, scalaServices)
-  })(Fs.readdirSync(servicesDir))
+  //})(Fs.readdirSync(servicesDir))
+  })
 }
 
 if (config.genServices) {
@@ -435,7 +451,8 @@ if (config.genServices) {
 }
 
 let genRoutes = routesDir => {
-  monad.array.each(filename => {
+  //monad.array.each(filename => {
+  _.each(Fs.readdirSync(routesDir), filename => {
     let filepath = Path.resolve(routesDir, filename)
     if (filepath.endsWith('.swp')) {
       return;
@@ -461,7 +478,8 @@ let genRoutes = routesDir => {
     mkdirp.sync(dirpath)
 
     Fs.writeFileSync(fileout, scalaRoutes)
-  })(Fs.readdirSync(routesDir))
+  //})(Fs.readdirSync(routesDir))
+  })
 }
 
 if (config.genRoutes) {
