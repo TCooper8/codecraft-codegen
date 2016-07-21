@@ -153,7 +153,7 @@ let genScalaClasses = (namespace, template) => {
       classDef,
       ')'
     ].join('\n')
-  }
+  })
   //})(template)
   .join('\n\n')
 
