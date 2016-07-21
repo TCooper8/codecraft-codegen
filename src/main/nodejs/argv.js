@@ -32,6 +32,14 @@ let gatherArgs = argv => {
 
       acc.scalaOutputPath = scalaOutputPath
     }
+    else if (arg === '--fsharp_out') {
+      let fsharpOutputPath = argv[++i]
+      if (i >= limit) {
+        throw new Error('InvalidArgument: Expected output directory for argument \'--fsharp_out\'')
+      }
+
+      acc.fsharpOutputPath = fsharpOutputPath
+    }
     else if (arg === '--msgs') {
       acc.genMessages = true
     }

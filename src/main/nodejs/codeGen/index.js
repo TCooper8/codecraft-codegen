@@ -1,5 +1,11 @@
 'use strict'
 
-require('../config')
-require('./scala')
+const config = require('../config')
+
+if (config.scalaOutputPath) {
+  require('./scala')
+}
+if (config.fsharpOutputPath) {
+  require('./fsharp')
+}
 

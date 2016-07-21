@@ -1,0 +1,9 @@
+{
+  "name": "codecraft/codegen",
+  "dependencies": {
+  },
+  "publish": [
+    "npm install ./",
+    "sbt clean publish-local"
+  ]
+}

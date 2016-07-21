@@ -3,12 +3,10 @@
 const _ = require('lodash')
 const Fs = require('fs')
 const Path = require('path')
-const Zedd = require('codecraft-zedd')
 const config = require('../config')
 const Util = require('util')
 const mkdirp = require('mkdirp')
 
-const monad = Zedd.monad
 const sprintf = Util.format
 const array = monad.array
 
@@ -35,6 +33,16 @@ let resolveScalaType = (templateType, imports, namespace, generated) => {
     return _generated
   }
 
+  if (templateType === undefined) {
+    let msg = sprintf(
+      'Invalid resolveScalaType for (%j, %s, %s, %s)',
+      templateType,
+      imports,
+      namespace,
+      generated
+    )
+    throw new Error(msg)
+  }
   if (templateType === 'string') {
     return 'String'
   }
@@ -47,6 +55,12 @@ let resolveScalaType = (templateType, imports, namespace, generated) => {
   else if (templateType === 'option') {
     return 'Option'
   }
+  else if (templateType === 'bool') {
+    return 'Boolean'
+  }
+  else if (templateType === 'map') {
+    return 'Map'
+  }
   else if (templateType.indexOf('[') !== -1) {
     // Get the outer type name.
     let outerI = templateType.indexOf('[')
@@ -55,9 +69,14 @@ let resolveScalaType = (templateType, imports, namespace, generated) => {
     // Get the inner type name.
     let innerI = templateType.lastIndexOf(']')
     let inner = templateType.slice(outerI + 1, innerI)
+    let innerParts = _.map(inner.split(','), part => part.trim())
+    let innerResults = _.map(innerParts, part => {
+      return resolveScalaType(part, imports, namespace, generated)
+    }).join(', ')
 
     // Resolve the outer type and inner template types to scala types.
-    return sprintf('%s[%s]', resolveScalaType(outer, imports, namespace, generated), resolveScalaType(inner, imports, namespace, generated))
+    return sprintf('%s[%s]', resolveScalaType(outer, imports, namespace, generated), innerResults)
+    //return sprintf('%s[%s]', resolveScalaType(outer, imports, namespace, generated), resolveScalaType(inner, imports, namespace, generated))
   }
   else if (templateType.search(' ') !== -1) {
     // This is a nested type.
@@ -155,11 +174,21 @@ let genScalaServices = (namespace, template, moduleName) => {
   let serviceDefinitions = monad.object.mapPair((serviceName, body) => {
     //let registries = _.map(body, (templateType, fieldName) => {
     let registries = monad.object.mapPair((methodName, methodTemplate) => {
+      let request = methodTemplate.request
+      let response = methodTemplate.response
+
+      if (request === undefined) {
+        throw new Error(sprintf("Request type is undefined for service %s", serviceName))
+      }
+      if (response === undefined) {
+        throw new Error(sprintf("Request type is undefined for service %s", serviceName))
+      }
+
       let requestType = resolveScalaType(methodTemplate.request, imports, namespace, generated)
       let responseType = resolveScalaType(methodTemplate.response, imports, namespace, generated)
 
       let methodDef = sprintf('\tdef %s(cmd: %s): %s', methodName, requestType, responseType)
-      let methodRegistry = sprintf('\t\t\"cmd.%s.%s\" -> {\n\t\t\tany => %s(any.asInstanceOf[%s])\n\t\t}', moduleName.toLowerCase(), methodName, methodName, requestType)
+      let methodRegistry = sprintf('\t\t\"cmd.%s.%s\" -> {\n\t\t\tany => %s(any.asInstanceOf[%s])\n\t\t}', moduleName.toLowerCase(), methodName.toLowerCase(), methodName, requestType)
 
       return {
         methodDef: methodDef,
@@ -196,7 +225,7 @@ let genScalaServices = (namespace, template, moduleName) => {
   .join('\n\n')
 }
 
-let genScalaRouting = (namespace, template, messagesTemplate, moduleName) => {
+let genScalaRouting = (namespace, template, messagesTemplate, eventsTemplate, moduleName) => {
   let packageDef = sprintf('package %s', namespace)
 
   let imports = [
@@ -259,16 +288,16 @@ let genScalaRouting = (namespace, template, messagesTemplate, moduleName) => {
     ].join('\n')
   }
 
-  let routingGroupDefs = monad.object.mapPair((serviceName, body) => {
-    // Generate the GroupRouting record.
-    let groupRoutingRecord = [
-      sprintf('\tval groupRouting = GroupRouting('),
-      sprintf('\t\t\"cmd.%s\",', moduleName).toLowerCase(),
-      sprintf('\t\t\"cmd.%s.*\",', moduleName).toLowerCase(),
-      sprintf('\t\t\"cmd\"'),
-      sprintf('\t)')
-    ].join('\n')
+  // Generate the GroupRouting record.
+  let groupRoutingRecord = [
+    sprintf('\tval groupRouting = GroupRouting('),
+    sprintf('\t\t\"cmd.%s\",', moduleName).toLowerCase(),
+    sprintf('\t\t\"cmd.%s.*\",', moduleName).toLowerCase(),
+    sprintf('\t\t\"cmd\"'),
+    sprintf('\t)')
+  ].join('\n')
 
+  let cmdInfoRegistries = monad.object.mapPair((serviceName, body) => {
     let cmdInfoRegistries = monad.object.mapPair((methodName, methodTemplate) => {
       console.log('cmdInfoRegistries(%j)', methodTemplate, methodName)
       let requestType = resolveScalaType(methodTemplate.request, imports, namespace, generated)
@@ -286,22 +315,50 @@ let genScalaRouting = (namespace, template, messagesTemplate, moduleName) => {
       ].join('\n')
 
       //return sprintf('\t\tUtils.mkJsonCmdRegistry[%s, %s](\"%s\")', requestType, responseType, methodName)
-    })(body).join(',\n')
+    })(body)
 
-    let cmdInfoDef = [
-      '\tlazy val cmdInfo = List(',
-      cmdInfoRegistries,
-      '\t)',
-      '}'
-    ].join('\n')
+    return cmdInfoRegistries
+  })(template)
 
+  let cmdInfoDef = [
+    '\tlazy val cmdInfo = List(',
+    _.flatten(cmdInfoRegistries).join(',\n'),
+    '\t)',
+    '}'
+  ].join('\n')
+
+  let routingGroupDef = [
+    sprintf('object %sRoutingGroup {', moduleName),
+    sprintf('\timport %sFormatters._', moduleName),
+    groupRoutingRecord,
+    cmdInfoDef
+  ].join('\n')
+
+  // Generate the event routes if any exist.
+  let eventRoutingInfos = _.map(eventsTemplate, (eventType, eventKey) => {
+    // Genearte the actual event key and type.
+    eventKey = eventKey.toLowerCase()
+    eventType = resolveScalaType(eventType, imports, namespace, generated)
+
+    // Now, generate the registry.
     return [
-      sprintf('object %sRoutingGroup {', moduleName),
-      sprintf('\timport %sFormatters._', moduleName),
-      groupRoutingRecord,
-      cmdInfoDef
+      sprintf('\t\tEventRegistry('),
+      sprintf('\t\t\t\"event.%s.%s\",', moduleName, eventKey).toLowerCase(),
+      sprintf('\t\t\t\"event\",'),
+      sprintf('\t%s,', jsonSerialize(eventType)),
+      sprintf('\t%s', jsonDeserialize(eventType)),
+      sprintf('\t\t)')
     ].join('\n')
-  })(template).join('\n\n')
+  }).join(',\n')
+
+  let eventRoutingInfoDef = [
+    sprintf('object %sRoutingInfo {', _.capitalize(moduleName)),
+    sprintf('\timport %sFormatters._', moduleName),
+    sprintf('\tval eventInfo: List[EventRegistry] = List('),
+    eventRoutingInfos,
+    sprintf('\t)'),
+    '}'
+  ].join('\n')
 
   let importsDef = imports.join('\n')
 
@@ -309,7 +366,8 @@ let genScalaRouting = (namespace, template, messagesTemplate, moduleName) => {
     packageDef,
     importsDef,
     implicitsDef,
-    routingGroupDefs
+    routingGroupDef,
+    eventRoutingInfoDef
   ].join('\n\n')
 }
 
@@ -396,7 +454,7 @@ let genRoutes = routesDir => {
 
     genScalaClasses(namespace, template.messages)
     genScalaServices(namespace, template.services, moduleName)
-    let scalaRoutes = genScalaRouting(namespace, template.services, template.messages, moduleName).replace(/\t/g, '  ')
+    let scalaRoutes = genScalaRouting(namespace, template.services, template.messages, template.events, moduleName).replace(/\t/g, '  ')
     let fileout = Path.join(scalaOut, filename.replace('.json', 'Routes.scala'))
 
     let dirpath = Path.resolve('./', Path.dirname(fileout))

@@ -13,7 +13,6 @@
   "author": "coopetyl@live.com",
   "license": "ISC",
   "dependencies": {
-    "codecraft-zedd": "file:../codecraft-zedd",
     "lodash": "^4.13.1",
     "mkdirp": "^0.5.1"
   }
