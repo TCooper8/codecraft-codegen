@@ -4,7 +4,6 @@
   },
   "publish": [
     "npm install ./",
-    "fsharpc -r:Newtonsoft.Json.dll --target:library src/main/fsharp/IdiomaticDuConverter.fs src/main/fsharp/CmdGroupConsumer.fs src/main/fsharp/CmdRegistry.fs -o:Codegen.dll",
     "sbt clean publish-local"
   ]
 }
