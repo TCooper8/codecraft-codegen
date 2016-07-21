@@ -432,7 +432,7 @@ let genServices = servicesDir => {
 
     Fs.writeFileSync(fileout, scalaServices)
   //})(Fs.readdirSync(servicesDir))
-  }
+  })
 }
 
 if (config.genServices) {
@@ -468,7 +468,7 @@ let genRoutes = routesDir => {
 
     Fs.writeFileSync(fileout, scalaRoutes)
   //})(Fs.readdirSync(routesDir))
-  }
+  })
 }
 
 if (config.genRoutes) {
