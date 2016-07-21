@@ -129,13 +129,14 @@ let genScalaClasses = (namespace, template) => {
   let imports = []
 
   // Generate the class definitions.
-  //let classDefinitions = _.map(template, (body, className) => {
-  let classDefinitions = monad.object.mapPair((className, body) => {
+  let classDefinitions = _.map(template, (body, className) => {
+  //let classDefinitions = monad.object.mapPair((className, body) => {
     //let classDef = _.map(body, (templateType, fieldName) => {
 
     console.log('Pushing generated %s', className)
     generated.push(className)
-    let classDef = monad.object.mapPair((fieldName, templateType) => {
+    let classDef = _.map(body, (templateType, fieldName) => {
+    //let classDef = monad.object.mapPair((fieldName, templateType) => {
       console.log(
         'classDef object mapPair (%s, %s)',
         fieldName,
@@ -143,7 +144,8 @@ let genScalaClasses = (namespace, template) => {
       )
 
       return sprintf('\t%s: %s', fieldName, resolveScalaType(templateType, imports, namespace, generated))
-    })(body)
+    })
+    //})(body)
     .join(',\n')
 
     return [
@@ -151,7 +153,8 @@ let genScalaClasses = (namespace, template) => {
       classDef,
       ')'
     ].join('\n')
-  })(template)
+  }
+  //})(template)
   .join('\n\n')
 
   let importsDef = imports.join('\n')
