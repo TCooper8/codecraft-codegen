@@ -413,13 +413,13 @@ let genScalaRouting = (namespace, template, typesTemplate, eventsTemplate, modul
     console.log(cmdObjectDef)
 
     return [
+      objectDef,
       sprintf('abstract class %s extends CmdConsumer {', _.capitalize(serviceName)),
       headerDef,
       methodDefs,
       methodRegistryDef,
       serviceInfoDef,
       '}',
-      objectDef,
       cmdObjectDef
     ].join('\n')
   }).join('\n\n')
