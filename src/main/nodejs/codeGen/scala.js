@@ -211,7 +211,7 @@ let genScalaServices = (namespace, template, moduleName) => {
     imports.push('import codecraft.codegen.CmdGroupConsumer')
 
     return [
-      sprintf('trait %s extends CmdGroupConsumer {', serviceName),
+      sprintf('trait %s extends CmdGroupConsumer {', _.capitalize(serviceName)),
       methodsDef,
       registriesDef,
       '}'
@@ -231,7 +231,7 @@ let genScalaServices = (namespace, template, moduleName) => {
   .join('\n\n')
 }
 
-let genScalaRouting = (namespace, template, messagesTemplate, eventsTemplate, moduleName) => {
+let genScalaRouting = (namespace, template, typesTemplate, eventsTemplate, moduleName) => {
   let packageDef = sprintf('package %s', namespace)
 
   let imports = [
@@ -246,19 +246,19 @@ let genScalaRouting = (namespace, template, messagesTemplate, eventsTemplate, mo
   let formatters = (() => {
     let resolved = { }
 
-    let msgFormatters = _.map(messagesTemplate, (body, className) => {
+    let msgFormatters = _.map(typesTemplate, (body, className) => {
     //let msgFormatters = monad.object.mapPair((className, body) => {
       if (resolved[className]) return;
       let scalaClassName = resolveScalaType(className, imports, namespace, generated)
       return sprintf('\timplicit val %sFormat = Json.format[%s]', scalaClassName, scalaClassName)
     })
-    //})(messagesTemplate)
+    //})(typesTemplate)
 
     return _.filter(msgFormatters).join('\n')
   })()
   //let formatters = monad.object.mapPair((className, body) => {
   //  return sprintf('\timplicit val %sFormat = Json.format[%s]', className, className)
-  //})(messagesTemplate).join('\n')
+  //})(typesTemplate).join('\n')
 
   let outerNamespace = (() => {
     let i = namespace.lastIndexOf('.')
@@ -334,7 +334,7 @@ let genScalaRouting = (namespace, template, messagesTemplate, eventsTemplate, mo
 
     let serviceInfoDef = [
       sprintf('\tval serviceInfo = ServiceInfo('),
-      sprintf('\t\t\"%s\",', serviceName),
+      sprintf('\t\t\"%s\",', serviceName.toLowerCase()),
       sprintf('\t\tMap('),
       _.map(serviceBody, (methodTemplate, methodName) => {
         let requestType = resolveScalaType(methodTemplate.request, imports, namespace, generated)
@@ -350,15 +350,16 @@ let genScalaRouting = (namespace, template, messagesTemplate, eventsTemplate, mo
 
     // Build the companion object.
     let objectDef = [
-      sprintf('object %s {', serviceName),
+      sprintf('object %s {', _.capitalize(serviceName)),
       headerDef,
       _.map(serviceBody, (methodTemplate, methodName) => {
         let requestType = resolveScalaType(methodTemplate.request, imports, namespace, generated)
         let responseType = resolveScalaType(methodTemplate.response, imports, namespace, generated)
 
         return [
-          sprintf('\tdef %s = CmdInfo(\"%s\", \"%s\",', methodName, serviceName, methodName),
-          sprintf('\t\tany => Try { Json.toJson(any.asInstanceOf[%s]).toString.getBytes },', requestType),
+          sprintf('\tdef %s = CmdInfo(\"%s\", \"%s\",', methodName, serviceName.toLowerCase(), methodName),
+          sprintf('\t\tany => GenUtils.toBytes(any.asInstanceOf[%s]),', requestType),
+          //sprintf('\t\tany => Try { Json.toJson(any.asInstanceOf[%s]).toString.getBytes },', requestType),
           sprintf('\t\tany => Try { Json.toJson(any.asInstanceOf[%s]).toString.getBytes },', responseType),
           sprintf('\t\tbytes => Try { Json.parse(new String(bytes)).validate[%s].fold(errs => throw new Exception(JsError.toJson(errs).toString), cmd => cmd) },', requestType),
           sprintf('\t\tbytes => Try { Json.parse(new String(bytes)).validate[%s].fold(errs => throw new Exception(JsError.toJson(errs).toString), cmd => cmd) }', responseType),
@@ -383,14 +384,43 @@ let genScalaRouting = (namespace, template, messagesTemplate, eventsTemplate, mo
       '}'
     ].join('\n')
 
+    let cmdObjectDef = [
+      sprintf('object %sClient {', _.capitalize(serviceName)),
+      headerDef,
+      _.map(serviceBody, (methodTemplate, methodName) => {
+        let requestType = resolveScalaType(methodTemplate.request, imports, namespace, generated)
+        let responseType = resolveScalaType(methodTemplate.response, imports, namespace, generated)
+
+        return [
+          sprintf(
+            '\tdef %s(cloud: CloudInterface, cmd: %s) = {',
+            methodName,
+            requestType
+          ),
+          sprintf(
+            '\t\tcloud.cmd[%s, %s](%s.%s, cmd)',
+            requestType,
+            responseType,
+            _.capitalize(serviceName),
+            methodName
+          ),
+          '\t}'
+        ].join('\n')
+      }).join('\n\n'),
+      '}'
+    ].join('\n')
+
+    console.log(cmdObjectDef)
+
     return [
-      sprintf('abstract class %s extends CmdConsumer {', serviceName),
+      sprintf('abstract class %s extends CmdConsumer {', _.capitalize(serviceName)),
       headerDef,
       methodDefs,
       methodRegistryDef,
       serviceInfoDef,
       '}',
-      objectDef
+      objectDef,
+      cmdObjectDef
     ].join('\n')
   }).join('\n\n')
 
@@ -423,10 +453,10 @@ let genScalaRouting = (namespace, template, messagesTemplate, eventsTemplate, mo
 
 const scalaOut = config.scalaOutputPath
 
-let genMessages = messagesDir => {
+let genMessages = typesDir => {
   //monad.array.each(filename => {
-  _.each(Fs.readdirSync(messagesDir), filename => {
-    let filepath = Path.resolve(messagesDir, filename)
+  _.each(Fs.readdirSync(typesDir), filename => {
+    let filepath = Path.resolve(typesDir, filename)
     if (filename.endsWith('.swp')) {
       return;
     }
@@ -437,11 +467,11 @@ let genMessages = messagesDir => {
       return
     }
 
-    console.log('Generating messages for %s', filepath)
+    console.log('Generating types for %s', filepath)
 
     let template = JSON.parse(Fs.readFileSync(filepath))
     let namespace = template.namespace
-    let scalaMessages = genScalaClasses(namespace, template.messages).replace(/\t/g, '  ')
+    let scalaMessages = genScalaClasses(namespace, template.types).replace(/\t/g, '  ')
     let fileout = Path.join(scalaOut, filename.replace('.json', 'Messages.scala'))
 
     let dirpath = Path.resolve('./', Path.dirname(fileout))
@@ -449,7 +479,7 @@ let genMessages = messagesDir => {
 
     Fs.writeFileSync(fileout, scalaMessages)
   })
-  //})(Fs.readdirSync(messagesDir))
+  //})(Fs.readdirSync(typesDir))
 }
 if (config.genMessages) {
   genMessages(config.inputPath)
@@ -507,9 +537,10 @@ let genRoutes = routesDir => {
     let template = JSON.parse(Fs.readFileSync(filepath))
     let namespace = template.namespace
 
-    genScalaClasses(namespace, template.messages)
+    genScalaClasses(namespace, template.types)
     genScalaServices(namespace, template.services, moduleName)
-    let scalaRoutes = genScalaRouting(namespace, template.services, template.messages, template.events, moduleName).replace(/\t/g, '  ')
+
+    let scalaRoutes = genScalaRouting(namespace, template.services, template.types, template.events, moduleName).replace(/\t/g, '  ')
     let fileout = Path.join(scalaOut, filename.replace('.json', 'Routes.scala'))
 
     let dirpath = Path.resolve('./', Path.dirname(fileout))
