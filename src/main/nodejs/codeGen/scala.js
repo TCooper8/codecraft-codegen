@@ -401,7 +401,7 @@ let genScalaRouting = (namespace, template, typesTemplate, eventsTemplate, modul
             '\t\tcloud.cmd[%s, %s](%s.%s, cmd)',
             requestType,
             responseType,
-            _.capitalize(serviceName),
+            _.upperFirst(serviceName),
             methodName
           ),
           '\t}'
