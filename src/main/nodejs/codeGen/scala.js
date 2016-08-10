@@ -350,7 +350,7 @@ let genScalaRouting = (namespace, template, typesTemplate, eventsTemplate, modul
 
     // Build the companion object.
     let objectDef = [
-      sprintf('object %s {', _.capitalize(serviceName)),
+      sprintf('object %s {', _.upperFirst(serviceName)),
       headerDef,
       _.map(serviceBody, (methodTemplate, methodName) => {
         let requestType = resolveScalaType(methodTemplate.request, imports, namespace, generated)
